@@ -1,7 +1,7 @@
 INC_DIR=./inc
 
 CXX=g++
-CXXFLAGS= -Wall -Wextra -Og -std=c++14 -I$(INC_DIR)
+CXXFLAGS= -Wall -Wextra -g -O0 -std=c++17 -I$(INC_DIR) -lpthread
 
 ASS1= src/ass1.cpp
 
