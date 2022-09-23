@@ -1,7 +1,7 @@
 /**
  * @file ass1.h
  * @brief  Header file of the Programming Assignment 1 COEN346 Fall 2022
- * @author Joshua Lafleur (josh.lafleur@outlook.com)
+ * @author Joshua Lafleur 40189389
  * @version 1.0
  * @date 2022-09-20
  *
@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 
@@ -35,3 +36,12 @@ typedef struct {
     vector<int> vals;
 } thread_data_S;
 
+typedef struct output_S {
+#if defined(TEST) /**< Allows the developper to choose output stream at compile time
+                  *    helpful when debugging */
+    ostream* out = &cout;
+#else /**< Normal operation */
+    ofstream* out = new ofstream("Output.txt");
+#endif /**< TEST */
+    pthread_mutex_t lock;
+} output_S;

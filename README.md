@@ -8,4 +8,4 @@
 
 | Assignment | Source Files | Include Files | Additional Make Targets |
 | --- | --- | --- | --- |
-| 1 | ass1.cpp | ass1.h | ass1-show-inputs (Shows inputs of child threads) |
+| 1 | ass1.cpp | ass1.h | ass1-test (Shows inputs of child threads and outputs to cout) |

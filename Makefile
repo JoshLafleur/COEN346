@@ -8,8 +8,9 @@ ASS1= src/ass1.cpp
 ass1: $(ASS1)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-ass1-show-inputs: $(ASS1)
-	$(CXX) $(CXXFLAGS) -DSHOW_INPUTS $^ -o ass1
+ass1-test: $(ASS1)
+	$(CXX) $(CXXFLAGS) -DTEST $^ -o ass1
 
 clean:
 	rm -f ass1
+	rm -f Output.txt
