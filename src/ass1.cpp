@@ -56,9 +56,7 @@ void* sort_child(void* arg) {
     thread_data_S child_data[2];
     pthread_t threads[2];
     vector<int> merged_data;
-    size_t id, sort_a, sort_b;
-    sort_a = 0;
-    sort_b = 0;
+    size_t id;
 
     thread_data_S* data = (thread_data_S*) arg;
 
@@ -95,7 +93,8 @@ void* sort_child(void* arg) {
             pthread_join(threads[i], NULL);
         
         /**< Merge data returned from child threads */
-        for (; (sort_a < child_data[0].vals.size()) || (sort_b < child_data[1].vals.size());) {
+        for (size_t sort_a = 0, sort_b = 0; (sort_a < child_data[0].vals.size()) ||
+                (sort_b < child_data[1].vals.size()); ) {
             if (sort_a == child_data[0].vals.size()) {
                 merged_data.push_back(child_data[1].vals[sort_b++]);
                 continue;
@@ -104,13 +103,14 @@ void* sort_child(void* arg) {
                 continue;
             }
 
-            if (child_data[0].vals[sort_a] < child_data[1].vals[sort_b]) {
+            if (child_data[0].vals[sort_a] <= child_data[1].vals[sort_b]) {
                 merged_data.push_back(child_data[0].vals[sort_a++]);
             } else {
                 merged_data.push_back(child_data[1].vals[sort_b++]);
             }
         } 
-    } else if (data->vals.size() == 2){ /**< Merge data if size is 2. Prevents un-necessary threading */
+    } else if (data->vals.size() == 2){ /**< Merge data if size is 2. 
+                                          Prevents un-necessary threading */
         if (data->vals[0] <= data->vals[1]) {
             merged_data = data->vals;
         } else {
