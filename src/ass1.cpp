@@ -13,7 +13,6 @@
  *                             I N C L U D E S
  ******************************************************************************/
 
-#include <pthread.h>
 #include <string.h>
 #include <array>
 #include <bitset>
@@ -54,19 +53,19 @@ void* sort_child(void* arg);
  */
 void* sort_child(void* arg) {
     thread_data_S child_data[2];
-    pthread_t threads[2];
+    OS_THREAD threads[2];
     vector<int> merged_data;
     size_t id;
 
     thread_data_S* data = (thread_data_S*) arg;
 
     /**< Lock the thread-count, retreive count for this thread and unlock count */
-    pthread_mutex_lock(&thread_count.lock);
+    OS_MUTEX_LOCK(thread_count.lock);
     id = ++thread_count.val;
-    pthread_mutex_unlock(&thread_count.lock);
+    OS_MUTEX_UNLOCK(thread_count.lock);
     
     /**< Lock the output, output start notification, and unlock output */
-    pthread_mutex_lock(&output.lock);
+    OS_MUTEX_LOCK(output.lock);
 #if defined(TEST) /**< Allows for easier debugging and testing */
     *output.out << "Thread " << bitset<3>(id) << " started ";
     for (int i : data->vals)
@@ -75,22 +74,22 @@ void* sort_child(void* arg) {
 #else /**< Normal operation */ 
     *output.out << "Thread " << bitset<3>(id) << " started\n";
 #endif /**< TEST */
-    pthread_mutex_unlock(&output.lock);
+    OS_MUTEX_UNLOCK(output.lock);
     
     if (data->vals.size() > 2) { /**< Split the vector if greater than 2 */
         for (size_t i = 0; i < (data->vals.size() / 2); i++)
             child_data[0].vals.push_back(data->vals[i]);
             
-        pthread_create(&threads[0], NULL, sort_child, &child_data[0]);
+        OS_THREAD_CREATE(threads[0], sort_child, child_data[0]);
         
         for (size_t i = (data->vals.size() / 2); i < data->vals.size(); i++)
             child_data[1].vals.push_back(data->vals[i]);
 
-        pthread_create(&threads[1], NULL, sort_child, &child_data[1]);
+        OS_THREAD_CREATE(threads[1], sort_child, child_data[1]);
         
         /**< Allows both threads to start executing before joining */
         for(size_t i = 0; i < 2; i++) 
-            pthread_join(threads[i], NULL);
+            OS_THREAD_WAIT(threads[i]);
         
         /**< Merge data returned from child threads */
         for (size_t sort_a = 0, sort_b = 0; (sort_a < child_data[0].vals.size()) ||
@@ -122,12 +121,12 @@ void* sort_child(void* arg) {
     }
     
     /**< Lock the output, output finished notification, and unlock output */
-    pthread_mutex_lock(&output.lock);
+    OS_MUTEX_LOCK(output.lock);
     *output.out << "Thread " << bitset<3>(id) << " finished: ";
     for (int i : merged_data)
         *output.out << i << " ";
     *output.out << "\n";
-    pthread_mutex_unlock(&output.lock);
+    OS_MUTEX_UNLOCK(output.lock);
 
     /**< Return information to parent process through the data struct */
     data->vals = merged_data;
@@ -142,7 +141,7 @@ void* sort_child(void* arg) {
  */
 int main() {
     thread_data_S child_data;
-    pthread_t top_thread;
+    OS_THREAD top_thread;
 
 #if defined(TEST) /**< Allows for easier debugging and testing */ 
     array<int, 8> input_arr = {3304, 8221, 26849, 14038, 1509, 6367, 7856, 21362 };
@@ -161,8 +160,8 @@ int main() {
 #endif /**< TEST */
 
     /**< Init the mutex's */
-    pthread_mutex_init(&thread_count.lock, NULL);
-    pthread_mutex_init(&output.lock, NULL);
+    OS_MUTEX_INIT(thread_count.lock);
+    OS_MUTEX_INIT(output.lock);
 
 #if defined(TEST) /**< Converts from array to vector if testing */
     for (size_t i = 0; i < input_arr.size(); i++)
@@ -170,13 +169,16 @@ int main() {
 #endif /**< TEST */
 
     /**< Creates and joins to the top level thread */
-    pthread_create(&top_thread, NULL, &sort_child, &child_data);
-    pthread_join(top_thread, NULL);
+    OS_THREAD_CREATE(top_thread, sort_child, child_data);
+    OS_THREAD_WAIT(top_thread);
 
 #if not defined(TEST) /**< Closes the file so the data is saved (outside of testing) */
     output.out->close();
     delete output.out;
 #endif /**< !TEST */
+
+    OS_MUTEX_DEINIT(thread_count.lock);
+    OS_MUTEX_DEINIT(output.lock);
     
     return 0; 
 }
