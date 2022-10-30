@@ -1,9 +1,9 @@
 /**
- * @file ass1.h
- * @brief  Header file of the Programming Assignment 1 COEN346 Fall 2022
+ * @file ass2.h
+ * @brief  Header file of the Programming Assignment 2 COEN346 Fall 2022
  * @author Joshua Lafleur 40189389, Eden Bouskila 40170349, Ahmed Enani 26721281
  * @version 1.0
- * @date 2022-09-20
+ * @date 2022-10-30
  *
  * @note We certify that this work is our own work and meet's the faculties
  * certification of originality.
@@ -16,7 +16,6 @@
  ******************************************************************************/
 
 #include <pthread.h>
-#include <vector>
 #include <iostream>
 #include <fstream>
 
@@ -27,13 +26,6 @@ using namespace std;
  ******************************************************************************/
 
 typedef struct {
-  int val;
-  pthread_mutex_t lock;
-} int_mutex_S;
-
-typedef struct {
-    int id;
-    vector<int> vals;
 } thread_data_S;
 
 typedef struct output_S {

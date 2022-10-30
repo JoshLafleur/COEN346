@@ -1,7 +1,7 @@
 /**
  * @file ass1.cpp
  * @brief  Source code of the Programming Assignment 1 COEN346 Fall 2022
- * @author Joshua Lafleur 40189389 
+ * @author Joshua Lafleur 40189389, Eden Bouskila 40170349, Ahmed Enani 26721281
  * @version 1.0
  * @date 2022-09-20
  *
