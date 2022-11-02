@@ -15,25 +15,48 @@
  *                             I N C L U D E S
  ******************************************************************************/
 
-#include <pthread.h>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <pthread.h>
+#include <string.h>
+#include <vector>
 
 using namespace std;
+
+/******************************************************************************
+ *                              E X T E R N S
+ ******************************************************************************/
+
+extern unsigned int time_sec;
+extern const unsigned int* const quantum;
+
+/******************************************************************************
+ *                              D E F I N E S
+ ******************************************************************************/
+
+#define UNUSED(x) (void)(x)
 
 /******************************************************************************
  *                             T Y P E D E F S
  ******************************************************************************/
 
+typedef enum {
+  UNSTARTED = 0x00,
+  RUNNING,
+  FINISHED,
+} proc_states_E;
+
 typedef struct {
+    proc_states_E state;
+    unsigned int run_time;
 } thread_data_S;
 
 typedef struct output_S {
-#if defined(TEST) /**< Allows the developper to choose output stream at compile time
-                  *    helpful when debugging */
-    ostream* out = &cout;
-#else /**< Normal operation */
-    ofstream* out = new ofstream("Output.txt");
+#if defined(TEST) /**< Allows the developper to choose output stream at        \
+                   * compile time helpful when debugging */
+  ostream *out = &cout;
+#else  /**< Normal operation */
+  ofstream *out = new ofstream("Output.txt");
 #endif /**< TEST */
-    pthread_mutex_t lock;
+  pthread_mutex_t lock;
 } output_S;
