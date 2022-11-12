@@ -7,7 +7,7 @@ ASS1= src/ass1.cpp inc/ass1.h
 ASS1_SUB= $(ASS1) Makefile Input.txt 1.pdf README.md
 
 ASS2= src/ass2.cpp inc/ass2.h
-ASS2_SUB= $(ASS1) Makefile Input.txt 1.pdf README.md
+ASS2_SUB= $(ASS1) Makefile Input.txt 2.pdf README.md
 
 ass1: $(ASS1)
 	$(CXX) $(CXXFLAGS) $^ -o $@
@@ -23,6 +23,9 @@ ass2: $(ASS2)
 
 ass2-test: $(ASS2)
 	$(CXX) $(CXXFLAGS) -DTEST $^ -o ass2
+
+ass2-submit: $(ASS2_SUB)
+	7z a Lafleur_Joshua_40189389_ASS2.7z $^
 
 clean:
 	rm -f ass1

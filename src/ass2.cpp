@@ -34,12 +34,13 @@ typedef struct {
   thread_data_S data;
   unsigned int run_time_quantum;
   bool running;
+  unsigned int id;
 } proc_S;
 
 typedef struct {
   string name;
   vector<proc_S> procs;
-  void* active_index;
+  void *active_index;
 } user_S;
 
 typedef struct {
@@ -57,6 +58,7 @@ static scheduler_S sched;
 static pthread_t sched_thread;
 const unsigned int *const quantum = &sched.quantum;
 unsigned int time_sec = 0;
+output_S out;
 
 /******************************************************************************
  *          P R I V A T E  F U N C T I O N  P R O T O T Y P E S
@@ -106,14 +108,13 @@ void *scheduler(void *arg) {
   CPU_SET(0, &cpu_mask);
 
   sched_setaffinity(0, sizeof(cpu_mask), &cpu_mask);
-  
+
   /**< Create handlers and timer */
   act1.sa_handler = thread_sig;
   act1.sa_flags = 0;
   sigemptyset(&act1.sa_mask);
   sigaction(SIGUSR1, &act1, NULL);
   sigaction(SIGUSR2, &act1, NULL);
-
 
   act2.sa_handler = scdl;
   act2.sa_flags = 0;
@@ -130,19 +131,19 @@ void *scheduler(void *arg) {
   active_users.reserve(32);
 
   while (sched.waiting_users.size() || active_users.size()) {
-      vector<int> user_deletion_index;
-        
-      /**< Pause thread if currently running */
-      if (((time_sec - last_start_time) % sched.quantum == 0) || (active_users.size() == 0)) {
+    vector<int> user_deletion_index;
+
+    /**< Pause thread if currently running */
+    if (((time_sec - last_start_time) % sched.quantum == 0) ||
+        (active_users.size() == 0)) {
       if (sched.curr_user != sched.waiting_users.end())
           if (sched.curr_proc->running == true) {
             cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-                ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-                ", Paused\n";
+                ", Process " << sched.curr_proc->id << ", Paused\n";
         sched.curr_proc->running = false;
       }
       /**< Round robin fair scheduler */
-resched:
+    resched:
       for (size_t user = 0; user < sched.waiting_users.size(); user++) {
         user_S tmp;
         vector<int> proc_deletion_index;
@@ -155,23 +156,24 @@ resched:
           if (sched.waiting_users[user].procs[proc].start_time <= time_sec) {
             tmp.procs.push_back(sched.waiting_users[user].procs[proc]);
             proc_deletion_index.push_back(proc);
-            
           }
         }
-        
+
         /**< Create active user */
         if (tmp.procs.size() > 0) {
           if (sched.waiting_users[user].active_index == 0) {
             active_users.push_back(tmp);
             active_users.back().procs.reserve(32);
             /**< Pointer to active user from waiting user */
-            sched.waiting_users[user].active_index = (void*) &active_users[active_users.size() - 1]; 
+            sched.waiting_users[user].active_index =
+                (void *)&active_users[active_users.size() - 1];
           } else {
-              for (unsigned int i = 0; i < tmp.procs.size(); i++)
-                  ((user_S*) sched.waiting_users[user].active_index)->procs.push_back(tmp.procs[i]);
+            for (unsigned int i = 0; i < tmp.procs.size(); i++)
+              ((user_S *)sched.waiting_users[user].active_index)
+                  ->procs.push_back(tmp.procs[i]);
           }
         }
-        
+
         /**< Delete threads from waiting */
         while (proc_deletion_index.size() > 0) {
           sched.waiting_users[user].procs.erase(
@@ -179,7 +181,7 @@ resched:
               proc_deletion_index.back());
           proc_deletion_index.pop_back();
         }
-        
+
         /**< Delete waiting user if no more waiting threads */
         if (sched.waiting_users[user].procs.size() == 0) {
           user_deletion_index.push_back(user);
@@ -193,8 +195,14 @@ resched:
       }
 
       /**< Exit if everything is done */
-      if ((sched.waiting_users.size() == 0) && (active_users.size() == 0))
+      if ((sched.waiting_users.size() == 0) && (active_users.size() == 0)) {
+#if not defined(                                                               \
+    TEST) /**< Closes the file so the data is saved (outside of testing) */
+        out.out->close();
+        delete out.out;
+#endif /**< !TEST */
         exit(0);
+      }
 
       /**< Calculate user quantums */
       if (active_users.size() != 0) {
@@ -205,7 +213,7 @@ resched:
       /**< If code got here, no active users so skip */
       goto skip;
 
-cont:
+    cont:
       /**< Calculate process run times */
       for (unsigned int user = 0; user < active_users.size(); user++) {
         unsigned int proc_quantum =
@@ -218,20 +226,23 @@ cont:
         }
       }
 
-      /**< Round robin, set first process to execute first user' first process */
+      /**< Round robin, set first process to execute first user' first process
+       */
       sched.curr_user = active_users.begin();
       sched.curr_proc = sched.curr_user->procs.begin();
       goto run;
     } else {
     run:
       if (sched.curr_proc->data.state == UNSTARTED) {
-          /**< Start process */
-        cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-            ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-            ", Started\n";
-        cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-            ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-            ", Resumed\n";
+        /**< Start process */
+        *out.out << "Time " << time_sec << ", User " << sched.curr_user->name
+                 << ", Process "
+                 << sched.curr_proc - sched.curr_user->procs.begin()
+                 << ", Started\n";
+        *out.out << "Time " << time_sec << ", User " << sched.curr_user->name
+                 << ", Process "
+                 << sched.curr_proc - sched.curr_user->procs.begin()
+                 << ", Resumed\n";
         last_start_time = time_sec;
         sched.curr_proc->run_time_quantum--;
         sched.curr_proc->running = true;
@@ -240,8 +251,7 @@ cont:
       } else if (sched.curr_proc->running == false) {
           /**< resume from paused state */
         cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-            ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-            ", Resumed\n";
+            ", Process " << sched.curr_proc->id << ", Resumed\n";
         last_start_time = time_sec;
         sched.curr_proc->running = true;
         sched.curr_proc->run_time_quantum--;
@@ -249,27 +259,27 @@ cont:
       } else if (sched.curr_proc->data.state == FINISHED || sched.curr_proc->data.run_time == 0) {
           /** Finished, clear process and user if needed */
         cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-            ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-            ", Finished\n";
+            ", Process " << sched.curr_proc->id << ", Finished\n";
         sched.curr_user->procs.erase(sched.curr_proc);
         if (sched.curr_user->procs.size() == 0) {
           active_users.erase(sched.curr_user);
-          if (active_users.size() == 0) goto finished;
+          if (active_users.size() == 0)
+            goto finished;
           sched.curr_proc = sched.curr_user->procs.begin();
         }
-        if (sched.curr_user == active_users.end()) goto resched;
+        if (sched.curr_user == active_users.end())
+          goto resched;
         goto done;
       } else if (sched.curr_proc->run_time_quantum != 0) {
-          /**< Coninue execution */
+        /**< Coninue execution */
         sched.curr_proc->run_time_quantum--;
         pthread_kill(sched.curr_proc->thread, SIGUSR2);
       } else {
           /**< Pause running process */
         cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
-            ", Process " << sched.curr_proc - sched.curr_user->procs.begin() <<
-            ", Paused\n";
+            ", Process " << sched.curr_proc->id << ", Paused\n";
         sched.curr_proc++->running = false;
-done:
+      done:
         if (sched.curr_proc == sched.curr_user->procs.end()) {
           if (++sched.curr_user == active_users.end())
             goto resched;
@@ -278,13 +288,17 @@ done:
         goto run;
       }
     }
-skip:
-      /**< Wait for next interrupt and increase time */
+  skip:
+    /**< Wait for next interrupt and increase time */
     pause();
     time_sec++;
   }
 
 finished:
+#if not defined(TEST) /**< Closes the file so the data is saved (outside of testing) */
+  out.out->close();
+  delete out.out;
+#endif /**< !TEST */
   exit(0);
   return NULL;
 }
@@ -295,9 +309,8 @@ finished:
  * @param arg
  */
 void scdl(int arg) {
-    UNUSED(arg);
-    pthread_kill(sched_thread, SIGUSR2);
-    
+  UNUSED(arg);
+  pthread_kill(sched_thread, SIGUSR2);
 }
 
 /**
@@ -311,7 +324,7 @@ void *func(void *arg) {
   thread_data_S *data = (thread_data_S *)arg;
   struct sigaction act;
   cpu_set_t cpu_mask;
- 
+
   /**< Run on only single CPU */
   CPU_ZERO(&cpu_mask);
   CPU_SET(0, &cpu_mask);
@@ -328,8 +341,10 @@ void *func(void *arg) {
   data->state = RUNNING;
 
   while (data->run_time--) {
-      cout << data->run_time << endl;
-      pause();
+#if defined(TEST)
+    *out.out << data->run_time << endl;
+#endif /**< TEST */
+    pause();
   }
   data->state = FINISHED;
   pthread_kill(sched_thread, SIGUSR2);
@@ -360,6 +375,8 @@ int main() {
     file_in >> tmp;
     num_proc = stoi(tmp);
 
+    unsigned int id = 0;
+
     for (unsigned int i = 0; i < num_proc; i++) {
       file_in >> tmp;
       proc.start_time = stoi(tmp);
@@ -367,6 +384,7 @@ int main() {
       proc.data.run_time = stoi(tmp);
       proc.func = (void *)func;
       proc.data.state = UNSTARTED;
+      proc.id = id++;
       user.procs.push_back(proc);
       user.active_index = 0;
     }
@@ -376,11 +394,11 @@ int main() {
     tmp.clear();
   }
 
-  pthread_create(&sched_thread, NULL, scheduler,
-                 NULL);
+  pthread_create(&sched_thread, NULL, scheduler, NULL);
 
   /**< Never exit through main function */
-  while (1);
+  while (1)
+    ;
 
   return 0;
 }
