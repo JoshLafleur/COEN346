@@ -9,6 +9,9 @@ ASS1_SUB= $(ASS1) Makefile Input.txt 1.pdf README.md
 ASS2= src/ass2.cpp inc/ass2.h
 ASS2_SUB= $(ASS1) Makefile Input.txt 2.pdf README.md
 
+ASS3= src/ass3.cpp inc/ass3.h
+ASS3_SUB= $(ASS1) Makefile Input.txt 3.pdf README.md
+
 ass1: $(ASS1)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
@@ -25,7 +28,16 @@ ass2-test: $(ASS2)
 	$(CXX) $(CXXFLAGS) -DTEST $^ -o ass2
 
 ass2-submit: $(ASS2_SUB)
-	7z a Lafleur_Joshua_40189389_ASS2.7z $^
+	tar cvf Lafleur_Joshua_40189389_ASS2.tar $^
+
+ass3: $(ASS3)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+ass3-test: $(ASS3)
+	$(CXX) $(CXXFLAGS) -DTEST $^ -o ass3
+
+ass3-submit: $(ASS3_SUB)
+	tar cvf Lafleur_Joshua_40189389_ASS3.tar $^
 
 clean:
 	rm -f ass1
