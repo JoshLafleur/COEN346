@@ -67,7 +67,7 @@ extern unsigned int time_msec;
  *            P U B L I C  F U N C T I O N  P R O T O T Y P E S
  ******************************************************************************/
 
-void Store(string variableId, unsigned int value);
-void Release(string variableId);
-unsigned int Lookup(string variableId);
+void Store(unsigned int variableId, unsigned int value);
+void Release(unsigned int variableId);
+unsigned int Lookup(unsigned int variableId);
 

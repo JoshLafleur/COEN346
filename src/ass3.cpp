@@ -26,7 +26,7 @@
  ******************************************************************************/
 
 typedef struct {
-    string var_id;
+    unsigned int var_id;
     unsigned int val;
 } page_S;
 
@@ -46,6 +46,12 @@ typedef struct {
 typedef struct {
   proc_S* running_proc;
 } cpu_S;
+
+typedef struct {
+  actions_E mem_state;
+  unsigned int mem_return;
+  unsigned int mem_arg;
+} mem_S;
 
 /******************************************************************************
  *                           P U B L I C  V A R S
@@ -69,60 +75,85 @@ static pthread_t proc_timebase;
 static pthread_t mem_manager;
 static pthread_t proc_scheduler;
 
-static actions_E mem_state;
-static unsigned int mem_return;
-static string mem_arg;
-static pthread_mutex_t mem_lock;
-static pthread_mutex_t critical_lock;
+static mem_S mem_arg;
+pthread_mutex_t mem_lock;
+pthread_mutex_t critical_lock;
 
 /******************************************************************************
  *          P R I V A T E  F U N C T I O N  P R O T O T Y P E S
  ******************************************************************************/
 
-void* manager(void* arg);
-void* scheduler(void* arg);
-void* timebase(void* arg);
+static void* manager(void* arg);
+static void* scheduler(void* arg);
+static void* timebase(void* arg);
 
 /******************************************************************************
  *                     P R I V A T E  F U N C T I O N S
  ******************************************************************************/
 
-void* manager(void* arg) {
-  UNUSED(arg);
+static void* manager(void* arg) {
+  volatile mem_S* data = (mem_S*) arg;
   
   while (true) {
     pthread_mutex_lock(&critical_lock);
     fstream disk = fstream("vm.txt", fstream::app);
-    switch (mem_state) {
+    switch (data->mem_state) {
       case STORE:
         {
           unsigned int i = 0;
           for (; i < mem_count; i++) {
-            if (mem[i].page.var_id == "") {
-              mem[i].page.var_id = mem_arg;
-              mem[i].page.val = mem_return;
+            if (!mem[i].timestamp) {
+              mem[i].page.var_id = data->mem_arg;
+              mem[i].page.val = data->mem_return;
               mem[i].timestamp = time_msec;
+#if defined (TEST)
+              pthread_mutex_lock(&out.lock);
+              *out.out << "Clock: " << time_msec << ", Memory Manager, STORE: Variable " << data->mem_arg <<
+                            " with Value " << data->mem_return << " in RAM" << endl;
+              pthread_mutex_unlock(&out.lock);
+#endif /**< TEST */
+              break;
             }
           }
           if (i == mem_count) {
-            disk << mem_arg << " " << mem_return << endl;
+            disk << data->mem_arg << " " << data->mem_return << endl;
+#if defined (TEST)
+            pthread_mutex_lock(&out.lock);
+            *out.out << "Clock: " << time_msec << ", Memory Manager, STORE: Variable " << data->mem_arg <<
+                          " with Value " << data->mem_return << " on DISK" << endl;
+            pthread_mutex_unlock(&out.lock);
+#endif /**< TEST */
           }
         }
         break;
       case RELEASE:
         for (unsigned int i = 0; i < mem_count; i++) {
-          if (mem[i].page.var_id == mem_arg) {
+          if (mem[i].page.var_id == data->mem_arg) {
+#if defined (TEST)
+              pthread_mutex_lock(&out.lock);
+              *out.out << "Clock: " << time_msec << ", Memory Manager, RELEASE: Variable " << mem[i].page.var_id <<
+                            " to DISK" << endl;
+              pthread_mutex_unlock(&out.lock);
+#endif /**< TEST */
             disk << mem[i].page.var_id << " " << mem[i].page.val << endl;
+            mem[i].page.var_id = 0;
+            mem[i].page.val = 0;
+            mem[i].timestamp = 0;
             continue;
           }
         }
         break;
       case LOOKUP:
         {
-          mem_return = -1;
+          data->mem_return = -1;
+#if defined (TEST)
+            pthread_mutex_lock(&out.lock);
+            *out.out << "Clock: " << time_msec << ", Memory Manager, LOOKUP: Variable " << data->mem_arg << endl;
+            pthread_mutex_unlock(&out.lock);
+#endif /**< TEST */
           unsigned int i = 0;
           for (; i < mem_count; i++) {
-            if (mem[i].page.var_id == mem_arg) {
+            if (mem[i].page.var_id == data->mem_arg) {
               disk << mem[i].page.var_id << " " << mem[i].page.val << endl;
               continue;
             }
@@ -131,7 +162,7 @@ void* manager(void* arg) {
             fstream buff_file = fstream("~vm.txt");
             string tmp;
             while (disk >> tmp) {
-              if (tmp == mem_arg) {
+              if (stoul(tmp) == data->mem_arg) {
                 disk >> tmp;
                 main_mem_S* oldest;
                 for (unsigned int i = 0; i < mem_count; i++) {
@@ -143,10 +174,10 @@ void* manager(void* arg) {
                               " with Variable " << tmp << endl;
                 pthread_mutex_unlock(&out.lock);
                 buff_file << oldest->page.var_id << " " << oldest->page.val << endl;
-                oldest->page.var_id = mem_arg;
+                oldest->page.var_id = data->mem_arg;
                 oldest->page.val = stoi(tmp);
                 oldest->timestamp = time_msec;
-                mem_return = oldest->page.val;
+                data->mem_return = oldest->page.val;
               } else {
                 buff_file << tmp;
                 disk >> tmp;
@@ -162,19 +193,20 @@ void* manager(void* arg) {
               tmp.clear();
             }
             disk.close();
-          } else mem_return = mem[i].page.val;
+          } else data->mem_return = mem[i].page.val;
           break;
         }
       case WAITING:
         break;
     }
-    mem_state = WAITING;
+    data->mem_state = WAITING;
     disk.close();
+    pthread_mutex_unlock(&critical_lock);
   }
   return 0;
 }
 
-void* scheduler(void* arg) { 
+static void* scheduler(void* arg) { 
   UNUSED(arg);
   proc_S* first_proc;
 
@@ -235,7 +267,7 @@ finish:
   return 0;
 }
 
-void* timebase(void* arg) {
+static void* timebase(void* arg) {
   UNUSED(arg);
   while (true) {
     usleep(1000);
@@ -290,7 +322,7 @@ int main() {
   pthread_mutex_init(&out.lock, NULL);
 
   pthread_create(&proc_scheduler, NULL, scheduler, NULL);
-  pthread_create(&mem_manager, NULL, manager, NULL);
+  pthread_create(&mem_manager, NULL, manager, &mem_arg);
   pthread_create(&proc_timebase, NULL, timebase, NULL);
 
   pthread_join(proc_scheduler, NULL);
@@ -307,41 +339,44 @@ int main() {
  *                       P U B L I C  F U N C T I O N S
  ******************************************************************************/
 
-void Store(string variableId, unsigned int value) {
+void Store(unsigned int variableId, unsigned int value) {
   pthread_mutex_lock(&mem_lock);
-  mem_arg = variableId;
-  mem_return = value;
-  mem_state = RELEASE;
+  pthread_mutex_lock(&critical_lock);
+  mem_arg.mem_arg = variableId;
+  mem_arg.mem_return = value;
+  mem_arg.mem_state = STORE;
   pthread_mutex_unlock(&critical_lock);
-  while (mem_state == RELEASE);
+  while (mem_arg.mem_state == RELEASE);
   
-  mem_arg.clear();
-  mem_return = 0;
+  mem_arg.mem_arg = 0;
+  mem_arg.mem_return = 0;
   pthread_mutex_unlock(&mem_lock);  
   
 }
 
-void Release(string variableId) {
+void Release(unsigned int variableId) {
   pthread_mutex_lock(&mem_lock);
-  mem_arg = variableId;
-  mem_state = RELEASE;
+  pthread_mutex_lock(&critical_lock);
+  mem_arg.mem_arg = variableId;
+  mem_arg.mem_state = RELEASE;
   pthread_mutex_unlock(&critical_lock);
-  while (mem_state == RELEASE);
+  while (mem_arg.mem_state == RELEASE);
 
-  mem_arg.clear();
+  mem_arg.mem_arg = 0;
   pthread_mutex_unlock(&mem_lock);  
 }
 
-unsigned int Lookup(string variableId) {
+unsigned int Lookup(unsigned int variableId) {
   pthread_mutex_lock(&mem_lock);
-  mem_arg = variableId;
-  mem_state = LOOKUP;
+  pthread_mutex_lock(&critical_lock);
+  mem_arg.mem_arg = variableId;
+  mem_arg.mem_state = LOOKUP;
   pthread_mutex_unlock(&critical_lock);
-  while (mem_state == LOOKUP);
+  while (mem_arg.mem_state == LOOKUP);
 
-  unsigned int tmp = mem_return;
-  mem_arg.clear();
-  mem_return = 0;
+  unsigned int tmp = mem_arg.mem_return;
+  mem_arg.mem_arg = 0;
+  mem_arg.mem_return = 0;
   pthread_mutex_unlock(&mem_lock);
 
   return tmp;

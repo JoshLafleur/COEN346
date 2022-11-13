@@ -25,7 +25,7 @@
 
 typedef struct {
   actions_E command;
-  string id;
+  unsigned int id;
   unsigned int val;
 } command_S;
 
@@ -51,7 +51,8 @@ void* func(void* arg) {
         cmnd.command = LOOKUP;
     }
 
-    cmnd_file >> cmnd.id;
+    cmnd_file >> tmp;
+    cmnd.id = stoul(tmp);
     
     if (cmnd.command == STORE) {
       cmnd_file >> tmp;
@@ -64,23 +65,26 @@ void* func(void* arg) {
   }
 
   while (start_time + data->run_time * 1000 > time_msec) {
-next:
     unsigned int random_cmnd = rand() % commands.size();
     unsigned int random_time = rand() % 1001;
 
     switch(commands[random_cmnd].command) {
       case STORE:
+        Store(commands[random_cmnd].id, commands[random_cmnd].val);
         pthread_mutex_lock(&out.lock);
         *out.out << "Clock: " << time_msec << ", Process " << data->pid <<
                     ", Store: Variable " << commands[random_cmnd].id << ", Value: " <<
                     commands[random_cmnd].val << endl;
         pthread_mutex_unlock(&out.lock);
+        usleep(random_time * 1000);
         break;
       case RELEASE:
+        Release(commands[random_cmnd].id);
         pthread_mutex_lock(&out.lock);
         *out.out << "Clock: " << time_msec << ", Process " << data->pid <<
                     ", Release: Variable " << commands[random_cmnd].id << endl;
         pthread_mutex_unlock(&out.lock);
+        usleep(random_time * 1000);
         break;
       case LOOKUP:
         {
@@ -91,7 +95,6 @@ next:
                       ", Lookup: Variable " << commands[random_cmnd].id << ", Value" <<
                       (int) ret << endl;
           pthread_mutex_unlock(&out.lock);
-          goto next;
           break;
         }
       case WAITING:
