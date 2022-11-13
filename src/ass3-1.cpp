@@ -63,7 +63,7 @@ void* func(void* arg) {
     tmp.clear();
   }
 
-  while (start_time + data->run_time > time_msec) {
+  while (start_time + data->run_time * 1000 > time_msec) {
 next:
     unsigned int random_cmnd = rand() % commands.size();
     unsigned int random_time = rand() % 1001;
@@ -89,7 +89,7 @@ next:
           pthread_mutex_lock(&out.lock);
           *out.out << "Clock: " << time_msec << ", Process " << data->pid <<
                       ", Lookup: Variable " << commands[random_cmnd].id << ", Value" <<
-                      ret << endl;
+                      (int) ret << endl;
           pthread_mutex_unlock(&out.lock);
           goto next;
           break;

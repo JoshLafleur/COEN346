@@ -40,10 +40,10 @@ typedef struct {
 } thread_data_S;
 
 typedef enum {
-  STORE = 0x00,
+  WAITING = 0x00,
+  STORE,
   RELEASE,
   LOOKUP,
-  WAITING,
 } actions_E;
 
 typedef struct output_S {

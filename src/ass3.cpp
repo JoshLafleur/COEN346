@@ -203,7 +203,7 @@ void* scheduler(void* arg) {
   while(true) {
     if (!first_proc) {
       for (unsigned int i = 0; i < cpu_count; i++)
-        if (!cpus[i].running_proc)
+        if (cpus[i].running_proc)
           goto cont;
       goto finish;
     }
@@ -211,23 +211,23 @@ cont:
     for (unsigned int i = 0; i < cpu_count; i++) {
       if (cpus[i].running_proc) {
         if (cpus[i].running_proc->arg.complete) {
-          cpus[i].running_proc = NULL;
           pthread_mutex_lock(&out.lock);
           *out.out << "Clock: " << time_msec << ", Process " << cpus[i].running_proc->arg.pid
                       << ": Finished.\n";
           pthread_mutex_unlock(&out.lock);
+          cpus[i].running_proc = NULL;
         }
-      }
-      if (!cpus[i].running_proc && (first_proc->start_time * 1000 >= time_msec)) {
-        cpus[i].running_proc = first_proc;
-        first_proc->running = true;
-        pthread_create(&first_proc->thread, NULL, func, &first_proc->arg);
-        first_proc = (proc_S*) first_proc->next_proc;
-        pthread_mutex_lock(&out.lock);
-        *out.out << "Clock: " << time_msec << ", Process " << cpus[i].running_proc->arg.pid
-                    << ": Started.\n";
-        pthread_mutex_unlock(&out.lock);
-
+      } else if (first_proc) {
+        if (first_proc->start_time * 1000 <= time_msec) {
+          cpus[i].running_proc = first_proc;
+          first_proc->running = true;
+          pthread_create(&first_proc->thread, NULL, func, &first_proc->arg);
+          first_proc = (proc_S*) first_proc->next_proc;
+          pthread_mutex_lock(&out.lock);
+          *out.out << "Clock: " << time_msec << ", Process " << cpus[i].running_proc->arg.pid
+                      << ": Started.\n";
+          pthread_mutex_unlock(&out.lock);
+        }
       }
     }
   }
@@ -237,8 +237,10 @@ finish:
 
 void* timebase(void* arg) {
   UNUSED(arg);
-  usleep(1000);
-  time_msec++;
+  while (true) {
+    usleep(1000);
+    time_msec++;
+  }
   return 0;
 }
 
@@ -282,6 +284,10 @@ int main() {
   out.out->close();
   delete out.out;
 #endif /**< !TEST */
+  /**< Init the mutex's */
+  pthread_mutex_init(&mem_lock, NULL);
+  pthread_mutex_init(&critical_lock, NULL);
+  pthread_mutex_init(&out.lock, NULL);
 
   pthread_create(&proc_scheduler, NULL, scheduler, NULL);
   pthread_create(&mem_manager, NULL, manager, NULL);
