@@ -18,12 +18,10 @@
 #include <fstream>
 #include <iostream>
 #include <pthread.h>
+#include <vector>
 
 using namespace std;
 
-/******************************************************************************
- *                              E X T E R N S
- ******************************************************************************/
 
 /******************************************************************************
  *                              D E F I N E S
@@ -36,7 +34,17 @@ using namespace std;
  ******************************************************************************/
 
 typedef struct {
+    bool complete;
+    unsigned int run_time;
+    unsigned int pid;
 } thread_data_S;
+
+typedef enum {
+  STORE = 0x00,
+  RELEASE,
+  LOOKUP,
+  WAITING,
+} actions_E;
 
 typedef struct output_S {
 #if defined(TEST) /**< Allows the developper to choose output stream at        \
@@ -47,4 +55,19 @@ typedef struct output_S {
 #endif /**< TEST */
   pthread_mutex_t lock;
 } output_S;
+
+/******************************************************************************
+ *                              E X T E R N S
+ ******************************************************************************/
+
+extern output_S out;
+extern unsigned int time_msec;
+
+/******************************************************************************
+ *            P U B L I C  F U N C T I O N  P R O T O T Y P E S
+ ******************************************************************************/
+
+void Store(string variableId, unsigned int value);
+void Release(string variableId);
+unsigned int Lookup(string variableId);
 

@@ -9,7 +9,7 @@ ASS1_SUB= $(ASS1) Makefile Input.txt 1.pdf README.md
 ASS2= src/ass2.cpp inc/ass2.h
 ASS2_SUB= $(ASS1) Makefile Input.txt 2.pdf README.md
 
-ASS3= src/ass3.cpp inc/ass3.h
+ASS3= src/ass3.cpp src/ass3-1.cpp inc/ass3.h inc/ass3-1.h
 ASS3_SUB= $(ASS1) Makefile Input.txt 3.pdf README.md
 
 ass1: $(ASS1)
