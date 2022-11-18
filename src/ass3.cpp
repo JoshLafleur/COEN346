@@ -154,7 +154,7 @@ static void* manager(void* arg) {
           unsigned int i = 0;
           for (; i < mem_count; i++) {
             if (mem[i].page.var_id == data->mem_arg) {
-              disk << mem[i].page.var_id << " " << mem[i].page.val << endl;
+              data->mem_return = mem[i].page.val;
               continue;
             }
           }
@@ -171,7 +171,7 @@ static void* manager(void* arg) {
                 }
                 pthread_mutex_lock(&out.lock);
                 *out.out << "Clock: " << time_msec << ", Memory Manager, SWAP: Variable " << oldest->page.var_id <<
-                              " with Variable " << tmp << endl;
+                              " with Variable " << data->mem_arg << endl;
                 pthread_mutex_unlock(&out.lock);
                 buff_file << oldest->page.var_id << " " << oldest->page.val << endl;
                 oldest->page.var_id = data->mem_arg;
@@ -193,7 +193,7 @@ static void* manager(void* arg) {
               tmp.clear();
             }
             disk.close();
-          } else data->mem_return = mem[i].page.val;
+          }
           break;
         }
       case WAITING:
@@ -312,22 +312,27 @@ int main() {
     procs[i].running = false;
   }
 
-#if not defined(TEST) /**< Closes the file so the data is saved (outside of testing) */
-  out.out->close();
-  delete out.out;
-#endif /**< !TEST */
   /**< Init the mutex's */
   pthread_mutex_init(&mem_lock, NULL);
   pthread_mutex_init(&critical_lock, NULL);
   pthread_mutex_init(&out.lock, NULL);
 
-  pthread_create(&proc_scheduler, NULL, scheduler, NULL);
+  mem_arg.mem_arg = 0;
+  mem_arg.mem_return = 0;
+  mem_arg.mem_state = WAITING;
+
   pthread_create(&mem_manager, NULL, manager, &mem_arg);
+  pthread_create(&proc_scheduler, NULL, scheduler, NULL);
   pthread_create(&proc_timebase, NULL, timebase, NULL);
 
   pthread_join(proc_scheduler, NULL);
   pthread_cancel(mem_manager);
   pthread_cancel(proc_timebase);
+
+#if not defined(TEST) /**< Closes the file so the data is saved (outside of testing) */
+  out.out->close();
+  delete out.out;
+#endif /**< !TEST */
 
   free(mem);
   free(cpus);
@@ -347,11 +352,7 @@ void Store(unsigned int variableId, unsigned int value) {
   mem_arg.mem_state = STORE;
   pthread_mutex_unlock(&critical_lock);
   while (mem_arg.mem_state == RELEASE);
-  
-  mem_arg.mem_arg = 0;
-  mem_arg.mem_return = 0;
   pthread_mutex_unlock(&mem_lock);  
-  
 }
 
 void Release(unsigned int variableId) {
@@ -361,8 +362,6 @@ void Release(unsigned int variableId) {
   mem_arg.mem_state = RELEASE;
   pthread_mutex_unlock(&critical_lock);
   while (mem_arg.mem_state == RELEASE);
-
-  mem_arg.mem_arg = 0;
   pthread_mutex_unlock(&mem_lock);  
 }
 
@@ -373,10 +372,8 @@ unsigned int Lookup(unsigned int variableId) {
   mem_arg.mem_state = LOOKUP;
   pthread_mutex_unlock(&critical_lock);
   while (mem_arg.mem_state == LOOKUP);
-
+  
   unsigned int tmp = mem_arg.mem_return;
-  mem_arg.mem_arg = 0;
-  mem_arg.mem_return = 0;
   pthread_mutex_unlock(&mem_lock);
 
   return tmp;

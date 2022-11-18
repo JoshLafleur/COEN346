@@ -42,5 +42,7 @@ ass3-submit: $(ASS3_SUB)
 clean:
 	rm -f ass1
 	rm -f ass2
+	rm -f ass3
 	rm -f Output.txt
+	rm -f vm.txt
 	rm -f *.7z
