@@ -96,7 +96,7 @@ static void* manager(void* arg) {
   
   while (true) {
     pthread_mutex_lock(&critical_lock);
-    fstream disk = fstream("vm.txt", fstream::app);
+    fstream disk = fstream("vm.txt", fstream::app | fstream::out | fstream::in);
     switch (data->mem_state) {
       case STORE:
         {
@@ -155,29 +155,34 @@ static void* manager(void* arg) {
           for (; i < mem_count; i++) {
             if (mem[i].page.var_id == data->mem_arg) {
               data->mem_return = mem[i].page.val;
+              mem[i].timestamp = time_msec;
               continue;
             }
           }
           if (i == mem_count) {
             fstream buff_file = fstream("~vm.txt");
             string tmp;
+            main_mem_S* oldest = &mem[0];
+            
+            for (unsigned int i = 0; i < mem_count; i++) {
+              if (oldest->timestamp > mem[i].timestamp) oldest = &mem[i];
+            }
+            
             while (disk >> tmp) {
               if (stoul(tmp) == data->mem_arg) {
                 disk >> tmp;
-                main_mem_S* oldest;
-                for (unsigned int i = 0; i < mem_count; i++) {
-                  if (!oldest) oldest = &mem[i];
-                  else if (oldest->timestamp > mem[i].timestamp) oldest = &mem[i];
-                }
+
                 pthread_mutex_lock(&out.lock);
                 *out.out << "Clock: " << time_msec << ", Memory Manager, SWAP: Variable " << oldest->page.var_id <<
                               " with Variable " << data->mem_arg << endl;
                 pthread_mutex_unlock(&out.lock);
+                
                 buff_file << oldest->page.var_id << " " << oldest->page.val << endl;
                 oldest->page.var_id = data->mem_arg;
                 oldest->page.val = stoi(tmp);
                 oldest->timestamp = time_msec;
                 data->mem_return = oldest->page.val;
+                break;
               } else {
                 buff_file << tmp;
                 disk >> tmp;
