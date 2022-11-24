@@ -138,7 +138,7 @@ void *scheduler(void *arg) {
         (active_users.size() == 0)) {
       if (sched.curr_user != sched.waiting_users.end())
           if (sched.curr_proc->running == true) {
-            cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
+            *out.out << "Time " << time_sec << ", User " << sched.curr_user->name << 
                 ", Process " << sched.curr_proc->id << ", Paused\n";
         sched.curr_proc->running = false;
       }
@@ -237,12 +237,10 @@ void *scheduler(void *arg) {
         /**< Start process */
         *out.out << "Time " << time_sec << ", User " << sched.curr_user->name
                  << ", Process "
-                 << sched.curr_proc - sched.curr_user->procs.begin()
-                 << ", Started\n";
+                 << sched.curr_proc->id << ", Started\n";
         *out.out << "Time " << time_sec << ", User " << sched.curr_user->name
                  << ", Process "
-                 << sched.curr_proc - sched.curr_user->procs.begin()
-                 << ", Resumed\n";
+                 << sched.curr_proc->id << ", Resumed\n";
         last_start_time = time_sec;
         sched.curr_proc->run_time_quantum--;
         sched.curr_proc->running = true;
@@ -250,7 +248,7 @@ void *scheduler(void *arg) {
                        &sched.curr_proc->data);
       } else if (sched.curr_proc->running == false) {
           /**< resume from paused state */
-        cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
+        *out.out << "Time " << time_sec << ", User " << sched.curr_user->name << 
             ", Process " << sched.curr_proc->id << ", Resumed\n";
         last_start_time = time_sec;
         sched.curr_proc->running = true;
@@ -258,7 +256,7 @@ void *scheduler(void *arg) {
         pthread_kill(sched.curr_proc->thread, SIGUSR2);
       } else if (sched.curr_proc->data.state == FINISHED || sched.curr_proc->data.run_time == 0) {
           /** Finished, clear process and user if needed */
-        cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
+        *out.out << "Time " << time_sec << ", User " << sched.curr_user->name << 
             ", Process " << sched.curr_proc->id << ", Finished\n";
         sched.curr_user->procs.erase(sched.curr_proc);
         if (sched.curr_user->procs.size() == 0) {
@@ -276,7 +274,7 @@ void *scheduler(void *arg) {
         pthread_kill(sched.curr_proc->thread, SIGUSR2);
       } else {
           /**< Pause running process */
-        cout << "Time " << time_sec << ", User " << sched.curr_user->name << 
+        *out.out << "Time " << time_sec << ", User " << sched.curr_user->name << 
             ", Process " << sched.curr_proc->id << ", Paused\n";
         sched.curr_proc++->running = false;
       done:
